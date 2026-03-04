@@ -1,28 +1,10 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { RiskBadge } from "@/components/dashboard/RiskBadge";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-
-function generateSimulation(revChange: number, expChange: number, months: number) {
-  const baseRevenue = 580000;
-  const baseExpense = 375000;
-  let balance = 2400000;
-  const data = [];
-  for (let i = 0; i <= months; i++) {
-    const rev = baseRevenue * (1 + revChange / 100);
-    const exp = baseExpense * (1 + expChange / 100);
-    const net = rev - exp;
-    balance += net;
-    data.push({ month: `M${i}`, cash: Math.round(balance) });
-  }
-  const breakEven = data.findIndex((d) => d.cash <= 0);
-  const survivalMonths = breakEven === -1 ? months : breakEven;
-  const riskLevel: "low" | "medium" | "high" | "critical" =
-    survivalMonths > 12 ? "low" : survivalMonths > 6 ? "medium" : survivalMonths > 3 ? "high" : "critical";
-  return { data, breakEven, survivalMonths, riskLevel };
-}
+import api from "@/api/client";
 
 const tt = {
   contentStyle: {
@@ -34,11 +16,58 @@ const tt = {
   },
 };
 
+const getRiskLevel = (riskStr: string): "low" | "medium" | "high" | "critical" => {
+  switch (riskStr?.toUpperCase()) {
+    case "SAFE": return "low";
+    case "LOW": return "low";
+    case "MEDIUM": return "medium";
+    case "HIGH": return "high";
+    case "CRITICAL": return "critical";
+    default: return "medium";
+  }
+};
+
 const StrategySimulator = () => {
   const [revChange, setRevChange] = useState(10);
   const [expChange, setExpChange] = useState(-5);
   const [months, setMonths] = useState(12);
-  const sim = generateSimulation(revChange, expChange, months);
+  const [simResult, setSimResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasRun, setHasRun] = useState(false);
+
+  const runSimulation = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get("/simulate", {
+        params: {
+          revenue_change: revChange,
+          expense_change: expChange,
+          months,
+        },
+      });
+      setSimResult(res.data);
+      setHasRun(true);
+    } catch (err) {
+      setError("Simulation failed. Make sure FastAPI is running on port 8000.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [revChange, expChange, months]);
+
+  // Build chart data from simulated_cash array
+  const chartData = simResult
+    ? simResult.simulated_cash.map((cash: number, i: number) => ({
+        month: `M${i + 1}`,
+        cash: Math.round(cash),
+      }))
+    : [];
+
+  const riskLevel = simResult ? getRiskLevel(simResult.risk_level) : "medium";
+  const breakEvenMonth = simResult?.break_even_month;
+  const survivalMonths = simResult?.cash_runway_months;
 
   return (
     <AppLayout>
@@ -52,7 +81,9 @@ const StrategySimulator = () => {
         <div className="glass-card p-6 animate-fade-in">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Revenue Change: <span className="text-foreground font-medium">{revChange > 0 ? "+" : ""}{revChange}%</span></label>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                Revenue Change: <span className="text-foreground font-medium">{revChange > 0 ? "+" : ""}{revChange}%</span>
+              </label>
               <input
                 type="range" min={-20} max={40} value={revChange}
                 onChange={(e) => setRevChange(Number(e.target.value))}
@@ -63,7 +94,9 @@ const StrategySimulator = () => {
               </div>
             </div>
             <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Expense Change: <span className="text-foreground font-medium">{expChange > 0 ? "+" : ""}{expChange}%</span></label>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                Expense Change: <span className="text-foreground font-medium">{expChange > 0 ? "+" : ""}{expChange}%</span>
+              </label>
               <input
                 type="range" min={-40} max={20} value={expChange}
                 onChange={(e) => setExpChange(Number(e.target.value))}
@@ -82,43 +115,84 @@ const StrategySimulator = () => {
               />
             </div>
           </div>
+
+          {/* Run Button */}
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={runSimulation}
+              disabled={loading}
+              className="px-6 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Running..." : "Run Simulation"}
+            </button>
+          </div>
         </div>
+
+        {/* Error */}
+        {error && (
+          <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm px-4 py-3 rounded-lg">
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* Prompt to run */}
+        {!hasRun && !loading && (
+          <div className="glass-card p-8 text-center animate-fade-in">
+            <p className="text-muted-foreground text-sm">Adjust the sliders above and click <span className="text-foreground font-medium">Run Simulation</span> to see results.</p>
+          </div>
+        )}
 
         {/* Results */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="glass-card p-5 text-center animate-fade-in">
-            <p className="text-sm text-muted-foreground mb-1">Break-even Month</p>
-            <p className="text-3xl font-bold text-foreground">{sim.breakEven === -1 ? "None" : `M${sim.breakEven}`}</p>
-          </div>
-          <div className="glass-card p-5 text-center animate-fade-in">
-            <p className="text-sm text-muted-foreground mb-1">Survival Months</p>
-            <p className="text-3xl font-bold text-foreground">{sim.survivalMonths}</p>
-          </div>
-          <div className="glass-card p-5 flex flex-col items-center justify-center animate-fade-in">
-            <p className="text-sm text-muted-foreground mb-2">Risk Level</p>
-            <RiskBadge label="Risk" level={sim.riskLevel} />
-          </div>
-        </div>
+        {hasRun && simResult && (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="glass-card p-5 text-center animate-fade-in">
+                <p className="text-sm text-muted-foreground mb-1">Break-even</p>
+                <p className="text-xl font-bold text-foreground">
+                  {breakEvenMonth === 1 ? "Already profitable" : breakEvenMonth ? `Month ${breakEvenMonth}` : "Never"}
+                </p>
+              </div>
+              <div className="glass-card p-5 text-center animate-fade-in">
+                <p className="text-sm text-muted-foreground mb-1">Cash Runway</p>
+                <p className="text-xl font-bold text-foreground">
+                  {survivalMonths >= 120 ? "120+ mo" : `${survivalMonths} mo`}
+                </p>
+              </div>
+              <div className="glass-card p-5 text-center animate-fade-in">
+                <p className="text-sm text-muted-foreground mb-1">Cash Change</p>
+                <p className={`text-xl font-bold ${
+                  (simResult?.cash_change_pct ?? 0) >= 0 ? "text-success" : "text-destructive"
+                }`}>
+                  {simResult?.cash_change_pct >= 0 ? "+" : ""}{simResult?.cash_change_pct?.toFixed(1)}%
+                </p>
+              </div>
+              <div className="glass-card p-5 flex flex-col items-center justify-center animate-fade-in">
+                <p className="text-sm text-muted-foreground mb-2">Risk Level</p>
+                <RiskBadge label="Risk" level={riskLevel} />
+              </div>
+            </div>
 
-        {/* Chart */}
-        <div className="glass-card p-5 animate-fade-in">
-          <h3 className="text-sm font-medium text-foreground mb-4">Simulated Cash Curve</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={sim.data}>
-              <defs>
-                <linearGradient id="simGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(230 70% 65%)" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="hsl(230 70% 65%)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 15% 18%)" />
-              <XAxis dataKey="month" tick={{ fill: "hsl(215 15% 55%)", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "hsl(215 15% 55%)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`} />
-              <Tooltip {...tt} formatter={(v: number) => [`$${(v / 1000000).toFixed(2)}M`]} />
-              <Area type="monotone" dataKey="cash" stroke="hsl(230 70% 65%)" fill="url(#simGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+            {/* Chart */}
+            <div className="glass-card p-5 animate-fade-in">
+              <h3 className="text-sm font-medium text-foreground mb-4">Simulated Cash Curve</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="simGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(230 70% 65%)" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(230 70% 65%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 15% 18%)" />
+                  <XAxis dataKey="month" tick={{ fill: "hsl(215 15% 55%)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "hsl(215 15% 55%)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1_000_000).toFixed(1)}M`} />
+                  <Tooltip {...tt} formatter={(v: number) => [`$${(v / 1_000_000).toFixed(2)}M`]} />
+                  <Area type="monotone" dataKey="cash" stroke="hsl(230 70% 65%)" fill="url(#simGrad)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
       </div>
     </AppLayout>
   );

@@ -7,6 +7,8 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
+  PlusCircle,
+  MessageSquare,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -19,6 +21,8 @@ const navItems = [
   { title: "Optimizer", url: "/optimizer", icon: Target },
   { title: "Risk Intelligence", url: "/risk", icon: ShieldAlert },
   { title: "Executive Report", url: "/report", icon: FileText },
+  { title: "Data Entry", url: "/data-entry", icon: PlusCircle },
+  { title: "Ask CFO", url: "/ask-cfo", icon: MessageSquare },
 ];
 
 export function AppSidebar() {

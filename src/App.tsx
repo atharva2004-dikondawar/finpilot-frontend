@@ -10,6 +10,8 @@ import StrategyOptimizer from "./pages/StrategyOptimizer";
 import RiskIntelligence from "./pages/RiskIntelligence";
 import ExecutiveReport from "./pages/ExecutiveReport";
 import NotFound from "./pages/NotFound";
+import DataEntry from "./pages/DataEntry";
+import AskCFO from "./pages/AskCFO";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +28,8 @@ const App = () => (
           <Route path="/optimizer" element={<StrategyOptimizer />} />
           <Route path="/risk" element={<RiskIntelligence />} />
           <Route path="/report" element={<ExecutiveReport />} />
+          <Route path="/data-entry" element={<DataEntry />} />
+          <Route path="/ask-cfo" element={<AskCFO />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

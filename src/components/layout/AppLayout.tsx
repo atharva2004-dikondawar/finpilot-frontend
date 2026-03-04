@@ -3,9 +3,10 @@ import { RefreshCw, User } from "lucide-react";
 
 interface AppLayoutProps {
   children: React.ReactNode;
+  companyName?: string;
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+export function AppLayout({ children, companyName = "Acme Corp" }: AppLayoutProps) {
   return (
     <div className="min-h-screen flex w-full bg-background">
       <AppSidebar />
@@ -13,7 +14,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         {/* Top bar */}
         <header className="h-16 border-b border-border flex items-center justify-between px-6 shrink-0 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Acme Corp</span>
+            <span className="text-sm text-muted-foreground">{companyName}</span>
             <span className="text-xs text-muted-foreground/50">•</span>
             <span className="text-xs text-muted-foreground">Q4 2025</span>
           </div>
