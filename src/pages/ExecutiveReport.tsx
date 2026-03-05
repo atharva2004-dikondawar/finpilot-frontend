@@ -84,10 +84,10 @@ const ExecutiveReport = () => {
       alerts.push({ level: "warning", text: `Company health score is low at ${Math.round(health.health_score)}/100 — action required` });
     }
   }
-  if (reportData) {
+  if (health) {
     alerts.push({
-      level: reportData.company_state === "HEALTHY" ? "success" : "warning",
-      text: `Company state: ${reportData.company_state}`,
+      level: health.status === "STRONG" ? "success" : health.status === "STABLE" ? "info" : "warning",
+      text: `Company state: ${health.status}`,
     });
   }
 
@@ -275,12 +275,12 @@ const ExecutiveReport = () => {
               </div>
               <div className="glass-card p-4 text-center animate-fade-in">
                 <p className="text-xs text-muted-foreground mb-1">Bankruptcy Risk</p>
-                <p className="text-2xl font-bold text-foreground">{reportData.bankruptcy_probability}%</p>
+                <p className="text-2xl font-bold text-foreground">{bankruptcy?.bankruptcy_probability}%</p>
                 <p className="text-xs text-muted-foreground">{bankruptcy?.risk_level}</p>
               </div>
               <div className="glass-card p-4 text-center animate-fade-in">
                 <p className="text-xs text-muted-foreground mb-1">Company State</p>
-                <p className="text-2xl font-bold text-success">{reportData.company_state}</p>
+                <p className="text-2xl font-bold text-success">{health?.status}</p>
                 <p className="text-xs text-muted-foreground">Current status</p>
               </div>
             </div>
